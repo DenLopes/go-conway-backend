@@ -26,7 +26,7 @@ type GridSize struct {
 	Height int `json:"height"`
 }
 
-type Grid [601][601]bool
+type Grid [101][101]bool
 
 var neighbors = []Point{
 	{-1, -1},
@@ -99,6 +99,10 @@ func main() {
 	}
 
 	http.HandleFunc("/ws", wsHandler)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello, World!")
+	})
+
 	server := &http.Server{Addr: ":8080"}
 
 	go func() {
