@@ -8,9 +8,8 @@ import (
 	"time"
 )
 
-// type Grid [601][261]bool
-
-type Grid [300][100]bool
+// type Grid [8160]byte
+type Grid [255][255]bool
 
 type Point struct {
 	X int `json:"x"`
