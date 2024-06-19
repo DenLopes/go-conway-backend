@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/golang/snappy"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,15 +20,15 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type Packet struct {
-	GameState GameState `json:"gameState"`
-	Cells     []Point   `json:"cells"`
+type Point struct {
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
 var (
-	clients    = make(map[*websocket.Conn]bool)
+	Clients    = make(map[*websocket.Conn]bool)
 	clientsMux sync.Mutex
-	Broadcast  = make(chan []Point)
+	Broadcast  = make(chan Grid)
 )
 
 func main() {
@@ -70,14 +71,14 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	clientsMux.Lock()
-	clients[ws] = true
+	Clients[ws] = true
 	clientsMux.Unlock()
 
 	for {
 		_, p, err := ws.ReadMessage()
 		if err != nil {
 			clientsMux.Lock()
-			delete(clients, ws)
+			delete(Clients, ws)
 			clientsMux.Unlock()
 			log.Println("Error reading message from client:", err)
 			break
@@ -93,12 +94,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		case "clear":
 			fmt.Println("Clearing grid")
 			ClearGrid()
-		case "start":
-			fmt.Println("Starting game")
-			StartGame()
-		case "stop":
-			fmt.Println("Stopping game")
-			StopGame()
 		default:
 			var point Point
 			err := json.Unmarshal(p, &point)
@@ -114,23 +109,21 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 func handleBroadcast() {
 	for {
-		cells := <-Broadcast
-		gameState := GetGameState()
-		message, err := json.Marshal(Packet{GameState: gameState, Cells: cells})
-		if err != nil {
-			log.Println("Error marshaling cells:", err)
-			continue
-		}
-
+		grid := <-Broadcast
+		compressedGrid := compress(grid[:])
 		clientsMux.Lock()
-		for client := range clients {
-			err := client.WriteMessage(websocket.TextMessage, message)
+		for client := range Clients {
+			err := client.WriteMessage(websocket.BinaryMessage, compressedGrid)
 			if err != nil {
 				log.Println("Error writing message to client:", err)
 				client.Close()
-				delete(clients, client)
+				delete(Clients, client)
 			}
 		}
 		clientsMux.Unlock()
 	}
+}
+
+func compress(data []byte) []byte {
+	return snappy.Encode(nil, data)
 }
