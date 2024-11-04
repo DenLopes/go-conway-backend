@@ -14,21 +14,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-type Point struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
 var (
 	Clients    = make(map[*websocket.Conn]bool)
 	clientsMux sync.Mutex
 	Broadcast  = make(chan Grid)
+
+	// The upgrader will upgrade the HTTP connection to a WebSocket connection
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		}}
 )
 
 func main() {
